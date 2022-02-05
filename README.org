@@ -1,6 +1,8 @@
 #+title: COMP 141 Course Project
 #+author: Ethan Coe-Renner
 
+git repo: https://github.com/ethan-coe-renner/programming-languages-course-project
+
 * How to use
 ** General
 https://doc.rust-lang.org/cargo/getting-started/installation.html
