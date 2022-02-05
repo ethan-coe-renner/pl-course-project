@@ -8,6 +8,7 @@ pub enum Token {
     Number,
     Symbol,
 }
+
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
@@ -24,6 +25,7 @@ pub fn parse_file(file: String) -> Vec<Token> {
     tokens
 }
 
+// converts a line into a vector of tokens
 fn line_to_tokens(line: &str) -> Vec<Token> {
     let mut regex_map = HashMap::new(); //map from Token to regex matching that token
     regex_map.insert(
@@ -33,10 +35,9 @@ fn line_to_tokens(line: &str) -> Vec<Token> {
     regex_map.insert(Token::Number, Regex::new(r"^[0-9]+$").unwrap());
     regex_map.insert(Token::Symbol, Regex::new(r"^(\+|\-|\*|/|\(|\))$").unwrap());
 
-    let words = line.split_whitespace();
     let mut tokens = Vec::new();
 
-    for word in words {
+    for word in line.split_whitespace() {
         let mut buffer = String::new(); // buffer of current match
         let mut chars = word.chars().peekable();
         let mut next = chars.next();
@@ -85,13 +86,14 @@ fn line_to_tokens(line: &str) -> Vec<Token> {
     tokens
 }
 
+// takes a char (ussually will only have one character) and finds the token which chould start with that buffer
+// If none match, returns None
 fn assign_initial_token(buffer: &str, regex_map: &HashMap<Token, Regex>) -> Option<Token> {
     if regex_map.get(&Token::Identifier).unwrap().is_match(buffer) {
         Some(Token::Identifier)
     } else if regex_map.get(&Token::Number).unwrap().is_match(buffer) {
         Some(Token::Number)
     } else if regex_map.get(&Token::Symbol).unwrap().is_match(buffer) {
-        // TODO: add token to tokens and clear buffer
         Some(Token::Symbol)
     } else {
         None
