@@ -2,16 +2,18 @@ use regex::Regex;
 use std::collections::HashMap;
 use std::fmt;
 
-#[derive(PartialEq, Eq, Hash, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 enum TokenType {
     Identifier,
     Number,
     Symbol,
+    Keyword,
 }
 
+#[derive(Clone)]
 pub struct Token {
     kind: TokenType,
-    value: String
+    value: String,
 }
 
 impl fmt::Display for Token {
@@ -25,6 +27,10 @@ impl fmt::Display for TokenType {
         write!(f, "{:?}", self)
     }
 }
+
+type ParseResult<T> = std::result::Result<T, ParseError>;
+
+struct ParseError;
 
 pub fn parse_file(file: String) -> Vec<Token> {
     let mut tokens = Vec::new();
@@ -44,7 +50,14 @@ fn line_to_tokens(line: &str) -> Vec<Token> {
         Regex::new(r"^([[:alpha:]])([[:alpha:]]|[0-9])*$").unwrap(),
     );
     regex_map.insert(TokenType::Number, Regex::new(r"^[0-9]+$").unwrap());
-    regex_map.insert(TokenType::Symbol, Regex::new(r"^(\+|\-|\*|/|\(|\))$").unwrap());
+    regex_map.insert(
+        TokenType::Symbol,
+        Regex::new(r"^(\+|\-|\*|/|\(|\)|;|:=)$").unwrap(),
+    );
+    regex_map.insert(
+        TokenType::Keyword,
+        Regex::new(r"^(if|then|else|endif|while|do|endwhile|skip)$").unwrap(),
+    );
 
     let mut tokens: Vec<Token> = Vec::new();
 
@@ -54,11 +67,11 @@ fn line_to_tokens(line: &str) -> Vec<Token> {
         let mut next = chars.next();
         buffer.push(next.unwrap());
         let mut token = match assign_initial_token(&buffer, &regex_map) {
-            None => {
+            Ok(t) => t,
+            Err(ParseError) => {
                 println!("Error reading \"{}\"", buffer);
                 return Vec::new();
             }
-            Some(t) => t,
         };
 
         next = match chars.peek() {
@@ -73,17 +86,19 @@ fn line_to_tokens(line: &str) -> Vec<Token> {
             } else {
                 // reached end of token
                 buffer.pop();
-                println!("{}: {:?}", buffer, &token);
-                tokens.push(Token {kind: token, value: buffer});
+                match add_token(&buffer, &regex_map, &mut tokens, token) {
+                    Err(_) => println!("Error reading \"{}\"", buffer),
+                    Ok(kind) => println!("{}: {:?}", buffer, kind),
+                }
                 buffer = String::new();
                 next = chars.next();
                 buffer.push(next.unwrap());
                 token = match assign_initial_token(&buffer, &regex_map) {
-                    None => {
+                    Ok(t) => t,
+                    Err(ParseError) => {
                         println!("Error reading \"{}\"", buffer);
                         return Vec::new();
                     }
-                    Some(t) => t,
                 };
             }
             next = match chars.peek() {
@@ -91,22 +106,66 @@ fn line_to_tokens(line: &str) -> Vec<Token> {
                 Some(&c) => Some(c),
             };
         }
-        println!("{}: {:?}", buffer, &token);
-        tokens.push(Token {kind: token, value: buffer});
+        match add_token(&buffer, &regex_map, &mut tokens, token) {
+            Err(_) => println!("Error reading \"{}\"", buffer),
+            Ok(kind) => println!("{}: {:?}", buffer, kind),
+        }
     }
     tokens
 }
 
-// takes a char (ussually will only have one character) and finds the token which chould start with that buffer
-// If none match, returns None
-fn assign_initial_token(buffer: &str, regex_map: &HashMap<TokenType, Regex>) -> Option<TokenType> {
-    if regex_map.get(&TokenType::Identifier).unwrap().is_match(buffer) {
-        Some(TokenType::Identifier)
-    } else if regex_map.get(&TokenType::Number).unwrap().is_match(buffer) {
-        Some(TokenType::Number)
-    } else if regex_map.get(&TokenType::Symbol).unwrap().is_match(buffer) {
-        Some(TokenType::Symbol)
+fn add_token(
+    buffer: &str,
+    regex_map: &HashMap<TokenType, Regex>,
+    tokens: &mut Vec<Token>,
+    kind: TokenType,
+) -> ParseResult<TokenType> {
+    if regex_map.get(&kind).unwrap().is_match(buffer) {
+        let newkind = check_if_keyword(buffer, regex_map, kind);
+        let newtoken = Token {
+            kind: newkind.clone(),
+            value: buffer.to_string(),
+        };
+        tokens.push(newtoken);
+        return Ok(newkind);
     } else {
-        None
+        return Err(ParseError);
+    }
+}
+
+// checks a complete buffer to see if it is a keyword
+fn check_if_keyword(
+    buffer: &str,
+    regex_map: &HashMap<TokenType, Regex>,
+    kind: TokenType,
+) -> TokenType {
+    if kind == TokenType::Identifier && regex_map.get(&TokenType::Keyword).unwrap().is_match(buffer)
+    {
+        TokenType::Keyword
+    } else {
+        kind
+    }
+}
+
+// takes a char (usually will only have one character) and finds the token which could start with that buffer
+// If none match, returns None
+fn assign_initial_token(
+    buffer: &str,
+    regex_map: &HashMap<TokenType, Regex>,
+) -> ParseResult<TokenType> {
+    if regex_map
+        .get(&TokenType::Identifier)
+        .unwrap()
+        .is_match(buffer)
+    {
+        Ok(TokenType::Identifier)
+    } else if regex_map.get(&TokenType::Number).unwrap().is_match(buffer) {
+        Ok(TokenType::Number)
+    } else if regex_map.get(&TokenType::Symbol).unwrap().is_match(buffer) {
+        Ok(TokenType::Symbol)
+    } else if buffer == ":" {
+        Ok(TokenType::Symbol)
+    } else {
+        Err(ParseError)
     }
 }
