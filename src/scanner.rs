@@ -87,7 +87,10 @@ fn line_to_tokens(line: &str) -> Vec<Token> {
                 // reached end of token
                 buffer.pop();
                 match add_token(&buffer, &regex_map, &mut tokens, token) {
-                    Err(_) => println!("Error reading \"{}\"", buffer),
+                    Err(ParseError) => {
+                        println!("Error reading \"{}\"", buffer);
+                        return Vec::new();
+                    }
                     Ok(kind) => println!("{}: {:?}", buffer, kind),
                 }
                 buffer = String::new();
@@ -107,7 +110,10 @@ fn line_to_tokens(line: &str) -> Vec<Token> {
             };
         }
         match add_token(&buffer, &regex_map, &mut tokens, token) {
-            Err(_) => println!("Error reading \"{}\"", buffer),
+            Err(ParseError) => {
+                println!("Error reading \"{}\"", buffer);
+                return Vec::new();
+            }
             Ok(kind) => println!("{}: {:?}", buffer, kind),
         }
     }
@@ -123,7 +129,7 @@ fn add_token(
     if regex_map.get(&kind).unwrap().is_match(buffer) {
         let newkind = check_if_keyword(buffer, regex_map, kind);
         let newtoken = Token {
-            kind: newkind.clone(),
+            kind: newkind,
             value: buffer.to_string(),
         };
         tokens.push(newtoken);

@@ -1,5 +1,5 @@
 x32 := 36 - y;
-if y then
+if: y then
 x32 :=0; skip
 else
 whiley := 12^2;
