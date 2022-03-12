@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
-enum TokenType {
+pub enum TokenType {
     Identifier,
     Number,
     Symbol,
@@ -12,8 +12,17 @@ enum TokenType {
 
 #[derive(Clone)]
 pub struct Token {
-    kind: TokenType,
-    value: String,
+    pub kind: TokenType,
+    pub value: String,
+}
+
+impl Token {
+    pub fn new(kind: TokenType, value: String) -> Token {
+	Token {
+	    kind,
+	    value
+	}
+    }
 }
 
 impl fmt::Display for Token {

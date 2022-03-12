@@ -1,8 +1,12 @@
 mod scanner;
+mod parser;
+use crate::scanner::*;
+use crate::parser::*;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 use std::env;
+
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -22,18 +26,23 @@ fn main() {
     }
 
     let tokens = scanner::parse_file(input_text);
-    let token_string: String = tokens.iter().map(|token| token.to_string()).collect::<Vec<String>>().join("\n");
+    let ast = parser::parse_expression(&mut tokens.into_iter());
 
-    let outputpath = Path::new(&args[2]);
-    let display = outputpath.display();
+    println!("{}",ast);
 
-    let mut output_file = match File::create(&outputpath) {
-        Err(why) => panic!("couldn't create {}: {}", display, why),
-        Ok(file) => file,
-    };
 
-    match output_file.write_all(token_string.as_bytes()) {
-        Err(why) => panic!("couldn't write to {}: {}", display, why),
-        Ok(_) => println!("successfully wrote to {}", display),
-    }
+    // let token_string: String = tokens.iter().map(|token| token.to_string()).collect::<Vec<String>>().join("\n");
+
+    // let outputpath = Path::new(&args[2]);
+    // let display = outputpath.display();
+
+    // let mut output_file = match File::create(&outputpath) {
+    //     Err(why) => panic!("couldn't create {}: {}", display, why),
+    //     Ok(file) => file,
+    // };
+
+    // match output_file.write_all(token_string.as_bytes()) {
+    //     Err(why) => panic!("couldn't write to {}: {}", display, why),
+    //     Ok(_) => println!("successfully wrote to {}", display),
+    // }
 }
