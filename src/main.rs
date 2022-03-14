@@ -20,7 +20,7 @@ fn main() {
     let mut input_text = String::new();
     match inputfile.read_to_string(&mut input_text) {
         Err(why) => panic!("couldn't read {}: {}", display, why),
-        Ok(_) => println!("Successfully read file\n"),
+        Ok(_) => println!("Successfully read {}\n", display),
     }
 
     let tokens = scanner::parse_file(input_text);
@@ -33,12 +33,15 @@ fn main() {
     token_string.push('\n');
     token_string.push('\n');
 
-    let ast = parser::parse_expression(&mut tokens.into_iter().peekable());
+    let ast = parser::parse(&mut tokens.into_iter().peekable());
 
     println!("AST:");
     let tree_string = match ast {
         Ok(ast) => ast.to_str(0),
-        Err(error) => error.to_string(),
+        Err(error) => {
+            println!("Parse Error: {}", error.to_string());
+            return;
+        }
     };
 
     println!("{}", tree_string);
@@ -53,11 +56,13 @@ fn main() {
 
     match output_file.write_all(token_string.as_bytes()) {
         Err(why) => panic!("couldn't write tokens to {}: {}", display, why),
-        Ok(_) => println!("successfully wrote tokens to {}", display),
+        Ok(_) => {}
     }
 
     match output_file.write_all(tree_string.as_bytes()) {
         Err(why) => panic!("couldn't write tree to {}: {}", display, why),
-        Ok(_) => println!("successfully wrote tree to {}", display),
+        Ok(_) => {}
     }
+
+    println!("Succesfully wrote tokens and tree to {}", display);
 }

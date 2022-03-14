@@ -40,15 +40,15 @@ impl AST {
         st.push('\n');
         match self.left {
             Some(subtree) => st.push_str(&subtree.to_str(level + 1)),
-            None => print!(""),
+            None => {}
         }
         match self.middle {
             Some(subtree) => st.push_str(&subtree.to_str(level + 1)),
-            None => print!(""),
+            None => {}
         }
         match self.right {
             Some(subtree) => st.push_str(&subtree.to_str(level + 1)),
-            None => print!(""),
+            None => {}
         }
         st
     }
@@ -57,7 +57,10 @@ impl AST {
 #[derive(Debug)]
 pub enum ParseError {
     EOF,
-    InvalidToken { found: Token, expected: String },
+    InvalidToken {
+        found: Token,
+        expected: &'static str,
+    },
 }
 
 impl fmt::Display for ParseError {
@@ -77,13 +80,24 @@ impl fmt::Display for ParseError {
 
 impl Error for ParseError {}
 
-pub fn parse_expression<I: Iterator<Item = Token>>(
+pub fn parse<I: Iterator<Item = Token>>(token_stream: &mut Peekable<I>) -> Result<AST, ParseError> {
+    let tree = parse_expression(token_stream)?;
+
+    match token_stream.next() {
+        None => Ok(tree),
+        Some(token) => Err(ParseError::InvalidToken {
+            found: token,
+            expected: "operator",
+        }),
+    }
+}
+
+fn parse_expression<I: Iterator<Item = Token>>(
     token_stream: &mut Peekable<I>,
 ) -> Result<AST, ParseError> {
     let mut tree: AST = parse_term(token_stream)?;
 
     while peek_token_match(token_stream, "+") {
-        println!("this should be printed");
         tree = AST::new(token_stream.next().unwrap())
             .left(tree)
             .right(parse_term(token_stream)?);
@@ -150,7 +164,7 @@ fn parse_element<I: Iterator<Item = Token>>(
                 None => Err(ParseError::EOF),
                 Some(token) => Err(ParseError::InvalidToken {
                     found: token,
-                    expected: ")".to_string(),
+                    expected: ")",
                 }),
             }
         }
@@ -160,7 +174,7 @@ fn parse_element<I: Iterator<Item = Token>>(
     } else {
         Err(ParseError::InvalidToken {
             found: next_token,
-            expected: "( or number or ident".to_string(),
+            expected: "( or number or ident",
         })
     }
 }
@@ -174,10 +188,7 @@ fn consume_token<I: Iterator<Item = Token>>(token_stream: &mut I) -> Result<Toke
 
 fn peek_token_match<I: Iterator<Item = Token>>(token_stream: &mut Peekable<I>, comp: &str) -> bool {
     match token_stream.peek() {
-        Some(token) => {
-            // println!("comparing {} to {}", token.value, comp);
-            token.value == comp
-        }
+        Some(token) => token.value == comp,
         None => false,
     }
 }
