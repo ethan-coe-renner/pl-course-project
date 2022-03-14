@@ -1,173 +1,183 @@
-use std::fmt;
 use crate::Token;
 use crate::TokenType;
+use std::error::Error;
+use std::fmt;
+use std::iter::Peekable;
 
-pub struct TernaryTree<T> {
-    pub value: T,
-    pub left: Option<Box<TernaryTree<T>>>,
-    pub middle: Option<Box<TernaryTree<T>>>,
-    pub right: Option<Box<TernaryTree<T>>>
-
+pub struct AST {
+    pub value: Token,
+    pub left: Option<Box<AST>>,
+    pub middle: Option<Box<AST>>,
+    pub right: Option<Box<AST>>,
 }
 
-impl<T> TernaryTree<T> {
-    pub fn new(value: T) -> Self {
-	TernaryTree {
-	    value,
-	    left: None,
-	    middle: None,
-	    right: None,
-	}
+impl AST {
+    pub fn new(value: Token) -> Self {
+        AST {
+            value,
+            left: None,
+            middle: None,
+            right: None,
+        }
     }
-
-    pub fn left(mut self, node: TernaryTree<T>) -> Self {
-	self.left = Some(Box::new(node));
+    pub fn left(mut self, node: AST) -> Self {
+        self.left = Some(Box::new(node));
+        self
+    }
+    // will be used in 2.2
+    // pub fn middle(mut self, node: AST) -> Self {
+    //     self.middle = Some(Box::new(node));
+    //     self
+    // }
+    pub fn right(mut self, node: AST) -> Self {
+        self.right = Some(Box::new(node));
         self
     }
 
-    pub fn middle(mut self, node: TernaryTree<T>) -> Self {
-	self.middle = Some(Box::new(node));
-        self
-    }
-
-
-    pub fn right(mut self, node: TernaryTree<T>) -> Self {
-	self.right = Some(Box::new(node));
-        self
+    pub fn to_str(self, level: usize) -> String {
+        let mut st = String::from("\t".repeat(level));
+        st.push_str(&self.value.to_string());
+        st.push('\n');
+        match self.left {
+            Some(subtree) => st.push_str(&subtree.to_str(level + 1)),
+            None => print!(""),
+        }
+        match self.middle {
+            Some(subtree) => st.push_str(&subtree.to_str(level + 1)),
+            None => print!(""),
+        }
+        match self.right {
+            Some(subtree) => st.push_str(&subtree.to_str(level + 1)),
+            None => print!(""),
+        }
+        st
     }
 }
 
-type AST = TernaryTree<Token>;
+#[derive(Debug)]
+pub enum ParseError {
+    EOF,
+    InvalidToken { found: Token, expected: String },
+}
 
-impl fmt::Display for AST {
+impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-	write!(f,"{}",self.value);
-	match self.left {
-	    Some(ast) => write!(f,"{}",*ast as AST),
-	    None => write!(f,"")
-	};
-	match self.middle {
-	    Some(ast) => write!(f,"{}",*ast as AST),
-	    None => write!(f,"")
-	};
-	match self.right {
-	    Some(ast) => write!(f,"{}",*ast as AST),
-	    None => write!(f,"")
-	}
+        match self {
+            Self::EOF => write!(f, "Reached end of file without completing valid AST"),
+            Self::InvalidToken { found, expected } => {
+                write!(
+                    f,
+                    "Invalid token: found {}, expected {}",
+                    found.value, expected
+                )
+            }
+        }
     }
 }
 
+impl Error for ParseError {}
 
-fn parse_element<I>(mut token_stream: &I) -> AST
-where I: Iterator<Item = Token>{
-    let token: Token;
-    match token_stream.next() {
-	Some(next) => token = next,
-	None => panic!("stream empty")
-    };
+pub fn parse_expression<I: Iterator<Item = Token>>(
+    token_stream: &mut Peekable<I>,
+) -> Result<AST, ParseError> {
+    let mut tree: AST = parse_term(token_stream)?;
 
+    while peek_token_match(token_stream, "+") {
+        println!("this should be printed");
+        tree = AST::new(token_stream.next().unwrap())
+            .left(tree)
+            .right(parse_term(token_stream)?);
+    }
+
+    Ok(tree)
+}
+
+fn parse_term<I: Iterator<Item = Token>>(
+    token_stream: &mut Peekable<I>,
+) -> Result<AST, ParseError> {
+    let mut tree: AST = parse_factor(token_stream)?;
+
+    while peek_token_match(token_stream, "-") {
+        tree = AST::new(token_stream.next().unwrap())
+            .left(tree)
+            .right(parse_factor(token_stream)?);
+    }
+
+    Ok(tree)
+}
+
+fn parse_factor<I: Iterator<Item = Token>>(
+    token_stream: &mut Peekable<I>,
+) -> Result<AST, ParseError> {
+    let mut tree: AST = parse_piece(token_stream)?;
+
+    while peek_token_match(token_stream, "/") {
+        tree = AST::new(token_stream.next().unwrap())
+            .left(tree)
+            .right(parse_piece(token_stream)?);
+    }
+
+    Ok(tree)
+}
+
+fn parse_piece<I: Iterator<Item = Token>>(
+    token_stream: &mut Peekable<I>,
+) -> Result<AST, ParseError> {
+    let mut tree: AST = parse_element(token_stream)?;
+
+    while peek_token_match(token_stream, "*") {
+        tree = AST::new(token_stream.next().unwrap())
+            .left(tree)
+            .right(parse_element(token_stream)?);
+    }
+
+    Ok(tree)
+}
+
+fn parse_element<I: Iterator<Item = Token>>(
+    token_stream: &mut Peekable<I>,
+) -> Result<AST, ParseError> {
     let tree: AST;
+    let next_token = consume_token(token_stream)?;
 
-    if token.value == "(" {
-	tree = parse_expression(token_stream);
-	return tree;
+    if next_token.value == *"(" {
+        tree = parse_expression(token_stream)?;
+        if peek_token_match(token_stream, ")") {
+            consume_token(token_stream)?;
+            Ok(tree)
+        } else {
+            match token_stream.next() {
+                None => Err(ParseError::EOF),
+                Some(token) => Err(ParseError::InvalidToken {
+                    found: token,
+                    expected: ")".to_string(),
+                }),
+            }
+        }
+    } else if next_token.kind == TokenType::Number || next_token.kind == TokenType::Identifier {
+        tree = AST::new(next_token);
+        Ok(tree)
+    } else {
+        Err(ParseError::InvalidToken {
+            found: next_token,
+            expected: "( or number or ident".to_string(),
+        })
     }
-    else if token.kind == TokenType::Number || token.kind == TokenType::Identifier {
-	tree = AST::new(token)
-    }
-    else {
-	panic!("Parse error at {}", token.value);
-    }
-
-    tree
-
 }
 
-fn parse_piece<I>(mut token_stream: &I) -> AST
-where I: Iterator<Item = Token>{
-    let tree: AST = parse_element(token_stream);
-
-    let token: Token;
+fn consume_token<I: Iterator<Item = Token>>(token_stream: &mut I) -> Result<Token, ParseError> {
     match token_stream.next() {
-	Some(token) => token = token,
-	None => panic!("stream empty")
-    };
-
-    while token.value == "*" {
-	tree = AST::new(token).left(tree).right(parse_element(token_stream));
-	    
-	match token_stream.next() {
-	    Some(token) => token = token,
-	    None => panic!("stream empty")
-	};
+        Some(token) => Ok(token),
+        None => Err(ParseError::EOF),
     }
-
-    tree
 }
 
-fn parse_factor<I>(token_stream: &I) -> AST
-where I: Iterator<Item = Token>{
-    let tree: AST = parse_piece(token_stream);
-
-    let token: Token;
-    match token_stream.next() {
-	Some(token) => token = token,
-	None => panic!("stream empty")
-    };
-
-    while token.value == "/" {
-	tree = AST::new(token).left(tree).right(parse_piece(token_stream));
-	
-	match token_stream.next() {
-	    Some(token) => token = token,
-	    None => panic!("stream empty")
-	};
+fn peek_token_match<I: Iterator<Item = Token>>(token_stream: &mut Peekable<I>, comp: &str) -> bool {
+    match token_stream.peek() {
+        Some(token) => {
+            // println!("comparing {} to {}", token.value, comp);
+            token.value == comp
+        }
+        None => false,
     }
-
-    tree
 }
-
-fn parse_term<I>(token_stream: &I) -> AST
-where I: Iterator<Item = Token>{
-    let tree: AST = parse_factor(token_stream);
-
-    let token: Token;
-    match token_stream.next() {
-	Some(token) => token = token,
-	None => panic!("stream empty")
-    };
-
-    while token.value == "-" {
-	tree = AST::new(token).left(tree).right(parse_factor(token_stream));
-	
-	match token_stream.next() {
-	    Some(token) => token = token,
-	    None => panic!("stream empty")
-	};
-    }
-
-    tree
-}
-
-pub fn parse_expression<I>(token_stream: &I) -> AST
-where I: Iterator<Item = Token>{
-    let tree: AST = parse_term(token_stream);
-
-    let token: Token;
-    match token_stream.next() {
-	Some(token) => token = token,
-	None => panic!("stream empty")
-    };
-
-    while token.value == "+" {
-	tree = AST::new(token).left(tree).right(parse_term(token_stream));
-	
-	match token_stream.next() {
-	    Some(token) => token = token,
-	    None => panic!("stream empty")
-	};
-    }
-
-    tree
-}
-

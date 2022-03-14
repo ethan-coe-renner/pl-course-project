@@ -1,12 +1,10 @@
-mod scanner;
 mod parser;
+mod scanner;
 use crate::scanner::*;
-use crate::parser::*;
+use std::env;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
-use std::env;
-
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -26,23 +24,40 @@ fn main() {
     }
 
     let tokens = scanner::parse_file(input_text);
-    let ast = parser::parse_expression(&mut tokens.into_iter());
+    let mut token_string: String = tokens
+        .iter()
+        .map(|token| token.to_string())
+        .collect::<Vec<String>>()
+        .join("\n");
 
-    println!("{}",ast);
+    token_string.push('\n');
+    token_string.push('\n');
 
+    let ast = parser::parse_expression(&mut tokens.into_iter().peekable());
 
-    // let token_string: String = tokens.iter().map(|token| token.to_string()).collect::<Vec<String>>().join("\n");
+    println!("AST:");
+    let tree_string = match ast {
+        Ok(ast) => ast.to_str(0),
+        Err(error) => error.to_string(),
+    };
 
-    // let outputpath = Path::new(&args[2]);
-    // let display = outputpath.display();
+    println!("{}", tree_string);
 
-    // let mut output_file = match File::create(&outputpath) {
-    //     Err(why) => panic!("couldn't create {}: {}", display, why),
-    //     Ok(file) => file,
-    // };
+    let outputpath = Path::new(&args[2]);
+    let display = outputpath.display();
 
-    // match output_file.write_all(token_string.as_bytes()) {
-    //     Err(why) => panic!("couldn't write to {}: {}", display, why),
-    //     Ok(_) => println!("successfully wrote to {}", display),
-    // }
+    let mut output_file = match File::create(&outputpath) {
+        Err(why) => panic!("couldn't create {}: {}", display, why),
+        Ok(file) => file,
+    };
+
+    match output_file.write_all(token_string.as_bytes()) {
+        Err(why) => panic!("couldn't write tokens to {}: {}", display, why),
+        Ok(_) => println!("successfully wrote tokens to {}", display),
+    }
+
+    match output_file.write_all(tree_string.as_bytes()) {
+        Err(why) => panic!("couldn't write tree to {}: {}", display, why),
+        Ok(_) => println!("successfully wrote tree to {}", display),
+    }
 }

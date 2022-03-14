@@ -10,7 +10,13 @@ pub enum TokenType {
     Keyword,
 }
 
-#[derive(Clone)]
+impl Default for TokenType {
+    fn default() -> Self {
+	Self::Identifier
+    }
+}
+
+#[derive(Clone, Default, Debug)]
 pub struct Token {
     pub kind: TokenType,
     pub value: String,
@@ -42,6 +48,7 @@ type ParseResult<T> = std::result::Result<T, ParseError>;
 struct ParseError;
 
 pub fn parse_file(file: String) -> Vec<Token> {
+    println!("Tokens: ");
     let mut tokens = Vec::new();
     for line in file.lines() {
         println!("Line: {}", line);
@@ -137,10 +144,10 @@ fn add_token(
 ) -> ParseResult<TokenType> {
     if regex_map.get(&kind).unwrap().is_match(buffer) {
         let newkind = check_if_keyword(buffer, regex_map, kind);
-        let newtoken = Token {
-            kind: newkind,
-            value: buffer.to_string(),
-        };
+        let newtoken = Token::new(
+            newkind,
+            buffer.to_string(),
+        );
         tokens.push(newtoken);
         return Ok(newkind);
     } else {
