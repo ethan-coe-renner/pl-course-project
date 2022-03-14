@@ -1,6 +1,5 @@
 use crate::Token;
 use crate::TokenType;
-use std::error::Error;
 use std::fmt;
 use std::iter::Peekable;
 
@@ -77,8 +76,6 @@ impl fmt::Display for ParseError {
         }
     }
 }
-
-impl Error for ParseError {}
 
 pub fn parse<I: Iterator<Item = Token>>(token_stream: &mut Peekable<I>) -> Result<AST, ParseError> {
     let tree = parse_expression(token_stream)?;

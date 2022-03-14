@@ -23,7 +23,14 @@ fn main() {
         Ok(_) => println!("Successfully read {}\n", display),
     }
 
-    let tokens = scanner::parse_file(input_text);
+    let tokens: Vec<Token> = match scanner::parse_file(input_text) {
+        Err(error) => {
+            println!("{}", error);
+            return;
+        }
+        Ok(tokens) => tokens,
+    };
+
     let mut token_string: String = tokens
         .iter()
         .map(|token| token.to_string())
@@ -39,7 +46,7 @@ fn main() {
     let tree_string = match ast {
         Ok(ast) => ast.to_str(0),
         Err(error) => {
-            println!("Parse Error: {}", error.to_string());
+            println!("Parse Error: {}", error);
             return;
         }
     };
