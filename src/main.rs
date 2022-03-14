@@ -7,6 +7,7 @@ use std::io::prelude::*;
 use std::path::Path;
 
 fn main() {
+    // read in from input file
     let args: Vec<String> = env::args().collect();
 
     let inputpath = Path::new(&args[1]);
@@ -23,6 +24,7 @@ fn main() {
         Ok(_) => println!("Successfully read {}\n", display),
     }
 
+    // Scan file to get token stream
     let tokens: Vec<Token> = match scanner::parse_file(input_text) {
         Err(error) => {
             println!("{}", error);
@@ -40,19 +42,20 @@ fn main() {
     token_string.push('\n');
     token_string.push('\n');
 
-    let ast = parser::parse(&mut tokens.into_iter().peekable());
-
-    println!("AST:");
-    let tree_string = match ast {
-        Ok(ast) => ast.to_str(0),
+    // parse token stream to get AST
+    let ast = match parser::parse(&mut tokens.into_iter().peekable()) {
+        Ok(ast) => ast,
         Err(error) => {
             println!("Parse Error: {}", error);
             return;
         }
     };
 
+    println!("AST:");
+    let tree_string = ast.to_str(0);
     println!("{}", tree_string);
 
+    // Output tokens and AST to output file
     let outputpath = Path::new(&args[2]);
     let display = outputpath.display();
 
