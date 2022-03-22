@@ -24,10 +24,23 @@ fn main() {
         Ok(_) => println!("Successfully read {}\n", display),
     }
 
+
+    let outputpath = Path::new(&args[2]);
+    let display = outputpath.display();
+
+    let mut output_file = match File::create(&outputpath) {
+        Err(why) => panic!("couldn't create {}: {}", display, why),
+        Ok(file) => file,
+    };
+
     // Scan file to get token stream
     let tokens: Vec<Token> = match scanner::parse_file(input_text) {
         Err(error) => {
             println!("{}", error);
+	    match output_file.write_all(error.to_string().as_bytes()) {
+		Err(why) => panic!("couldn't write scan error to {}: {}", display, why),
+		Ok(_) => {}
+	    }
             return;
         }
         Ok(tokens) => tokens,
@@ -42,11 +55,20 @@ fn main() {
     token_string.push('\n');
     token_string.push('\n');
 
+    match output_file.write_all(token_string.as_bytes()) {
+        Err(why) => panic!("couldn't write tokens to {}: {}", display, why),
+        Ok(_) => {}
+    }
+
     // parse token stream to get AST
     let ast = match parser::parse(&mut tokens.into_iter().peekable()) {
         Ok(ast) => ast,
         Err(error) => {
             println!("Parse Error: {}", error);
+	    match output_file.write_all(error.to_string().as_bytes()) {
+		Err(why) => panic!("couldn't write parse error to {}: {}", display, why),
+		Ok(_) => {}
+	    }
             return;
         }
     };
@@ -56,19 +78,6 @@ fn main() {
     println!("{}", tree_string);
 
     // Output tokens and AST to output file
-    let outputpath = Path::new(&args[2]);
-    let display = outputpath.display();
-
-    let mut output_file = match File::create(&outputpath) {
-        Err(why) => panic!("couldn't create {}: {}", display, why),
-        Ok(file) => file,
-    };
-
-    match output_file.write_all(token_string.as_bytes()) {
-        Err(why) => panic!("couldn't write tokens to {}: {}", display, why),
-        Ok(_) => {}
-    }
-
     match output_file.write_all(tree_string.as_bytes()) {
         Err(why) => panic!("couldn't write tree to {}: {}", display, why),
         Ok(_) => {}
