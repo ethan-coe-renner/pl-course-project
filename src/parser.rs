@@ -23,16 +23,14 @@ impl AST {
         self.left = Some(Box::new(node));
         self
     }
-    // will be used in 2.2
-    // pub fn middle(mut self, node: AST) -> Self {
-    //     self.middle = Some(Box::new(node));
-    //     self
-    // }
+    pub fn middle(mut self, node: AST) -> Self {
+        self.middle = Some(Box::new(node));
+        self
+    }
     pub fn right(mut self, node: AST) -> Self {
         self.right = Some(Box::new(node));
         self
     }
-
     pub fn to_str(self, level: usize) -> String {
         let mut st = String::from("\t".repeat(level));
         st.push_str(&self.value.to_string());
@@ -78,7 +76,7 @@ impl fmt::Display for ParseError {
 }
 
 pub fn parse<I: Iterator<Item = Token>>(token_stream: &mut Peekable<I>) -> Result<AST, ParseError> {
-    let tree = parse_expression(token_stream)?;
+    let tree = parse_statement(token_stream)?;
 
     match token_stream.next() {
         None => Ok(tree),
@@ -86,6 +84,81 @@ pub fn parse<I: Iterator<Item = Token>>(token_stream: &mut Peekable<I>) -> Resul
             found: token,
             expected: "operator",
         }),
+    }
+}
+
+fn parse_statement<I: Iterator<Item = Token>>(
+    token_stream: &mut Peekable<I>,
+) -> Result<AST, ParseError> {
+    let mut tree: AST = parse_basestatement(token_stream)?;
+    while peek_token_match(token_stream, ";") {
+        tree = AST::new(token_stream.next().unwrap())
+            .left(tree)
+            .right(parse_basestatement(token_stream)?);
+    }
+    Ok(tree)
+}
+
+fn parse_while_statement<I: Iterator<Item = Token>>(
+    token_stream: &mut Peekable<I>,
+) -> Result<AST, ParseError> {
+    let mut tree = AST::new(expect(token_stream, "while")?).left(parse_expression(token_stream)?);
+    expect(token_stream, "do")?;
+
+    tree = tree.right(parse_statement(token_stream)?);
+
+    expect(token_stream, "endwhile")?;
+
+    Ok(tree)
+}
+
+fn parse_if_statement<I: Iterator<Item = Token>>(
+    token_stream: &mut Peekable<I>,
+) -> Result<AST, ParseError> {
+    Ok(AST::new(expect(token_stream, "if")?)
+        .left(parse_expression(token_stream)?)
+        .middle(parse_statement(token_stream)?)
+        .right(parse_statement(token_stream)?))
+}
+
+fn parse_assignment<I: Iterator<Item = Token>>(
+    token_stream: &mut Peekable<I>,
+) -> Result<AST, ParseError> {
+    let tree = parse_element(token_stream)?;
+    Ok(AST::new(expect(token_stream, ":=")?)
+        .left(tree)
+        .right(parse_expression(token_stream)?))
+}
+
+fn parse_basestatement<I: Iterator<Item = Token>>(
+    token_stream: &mut Peekable<I>,
+) -> Result<AST, ParseError> {
+    //basestatement ::= assignment | ifstatement | whilestatement | skip
+    if peek_token_match(token_stream, "while") {
+        parse_while_statement(token_stream)
+    } else if peek_token_match(token_stream, "if") {
+        parse_if_statement(token_stream)
+    } else if peek_token_match(token_stream, "skip") {
+        Ok(AST::new(token_stream.next().unwrap()))
+    } else {
+        parse_assignment(token_stream)
+    }
+}
+
+// TODO: refactor code to use this function, probably parse_element and maybe others
+fn expect<I: Iterator<Item = Token>>(
+    token_stream: &mut Peekable<I>,
+    expected: &'static str,
+) -> Result<Token, ParseError> {
+    let next_token = consume_token(token_stream)?;
+
+    if next_token.value == *expected {
+        Ok(next_token)
+    } else {
+        Err(ParseError::InvalidToken {
+            found: next_token,
+            expected,
+        })
     }
 }
 
