@@ -7,4 +7,3 @@ edition = "2021"
 
 [dependencies]
 regex = "1.5.4"
-trees = "0.4.2"
