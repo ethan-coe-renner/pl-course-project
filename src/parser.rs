@@ -51,6 +51,58 @@ impl AST {
     }
 }
 
+pub enum Expected {
+    Type(TokenType),
+    Value(&'static str),
+}
+
+impl Expected {
+    fn comp(&self, token: &Token) -> bool {
+        match self {
+            Self::Type(kind) => token.kind == *kind,
+            Self::Value(value) => token.value == *value,
+        }
+    }
+}
+
+impl fmt::Display for Expected {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Type(kind) => write!(f, "token of type {}", kind),
+            Self::Value(value) => write!(f, "{}", value),
+        }
+    }
+}
+
+fn peek_token_match<I: Iterator<Item = Token>>(
+    token_stream: &mut Peekable<I>,
+    expected: Expected,
+) -> bool {
+    match token_stream.peek() {
+        Some(token) => expected.comp(token),
+        None => false,
+    }
+}
+
+fn expect<I: Iterator<Item = Token>>(
+    token_stream: &mut Peekable<I>,
+    expected: Expected,
+) -> Result<Token, ParseError> {
+    let token: Token = match token_stream.next() {
+        Some(token) => token,
+        None => return Err(ParseError::EOF { expected }),
+    };
+
+    if expected.comp(&token) {
+        Ok(token)
+    } else {
+        Err(ParseError::InvalidToken {
+            found: token,
+            expected: expected,
+        })
+    }
+}
+
 pub enum ParseError {
     EOF { expected: Expected },
     InvalidToken { found: Token, expected: Expected },
@@ -236,58 +288,6 @@ fn parse_element<I: Iterator<Item = Token>>(
                 None => return Err(ParseError::EOF { expected }),
             },
             expected,
-        })
-    }
-}
-
-pub enum Expected {
-    Type(TokenType),
-    Value(&'static str),
-}
-
-impl Expected {
-    fn comp(&self, token: &Token) -> bool {
-        match self {
-            Self::Type(kind) => token.kind == *kind,
-            Self::Value(value) => token.value == *value,
-        }
-    }
-}
-
-impl fmt::Display for Expected {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Self::Type(kind) => write!(f, "token of type {}", kind),
-            Self::Value(value) => write!(f, "{}", value),
-        }
-    }
-}
-
-fn peek_token_match<I: Iterator<Item = Token>>(
-    token_stream: &mut Peekable<I>,
-    expected: Expected,
-) -> bool {
-    match token_stream.peek() {
-        Some(token) => expected.comp(token),
-        None => false,
-    }
-}
-
-fn expect<I: Iterator<Item = Token>>(
-    token_stream: &mut Peekable<I>,
-    expected: Expected,
-) -> Result<Token, ParseError> {
-    let token: Token = match token_stream.next() {
-        Some(token) => token,
-        None => return Err(ParseError::EOF { expected }),
-    };
-
-    if expected.comp(&token) {
-        Ok(token)
-    } else {
-        Err(ParseError::InvalidToken {
-            found: token,
-            expected: expected,
         })
     }
 }
