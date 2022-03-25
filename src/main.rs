@@ -42,6 +42,7 @@ fn main() -> std::io::Result<()> {
     output_file.write_all(token_string.as_bytes())?;
 
     // parse token stream to get AST
+    output_file.write_all(b"\n\nAST:\n")?;
     let ast = match parser::parse(&mut tokens.into_iter().peekable()) {
         Ok(ast) => ast,
         Err(error) => {
@@ -54,7 +55,6 @@ fn main() -> std::io::Result<()> {
     let tree_string = ast.to_str(0);
 
     // Output tokens and AST to output file
-    output_file.write_all(b"\n\nAST:\n")?;
     output_file.write_all(tree_string.as_bytes())?;
 
     println!("Succesfully wrote tokens and tree to {}", display);
