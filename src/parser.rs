@@ -51,19 +51,19 @@ impl AST {
     }
 }
 
-#[derive(Debug)]
 pub enum ParseError {
-    EOF,
-    InvalidToken {
-        found: Token,
-        expected: &'static str,
-    },
+    EOF { expected: Expected },
+    InvalidToken { found: Token, expected: Expected },
 }
 
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::EOF => write!(f, "Reached end of file without completing valid AST"),
+            Self::EOF { expected } => write!(
+                f,
+                "Reached end of file without completing valid AST, expected {}",
+                expected
+            ),
             Self::InvalidToken { found, expected } => {
                 write!(
                     f,
@@ -82,7 +82,7 @@ pub fn parse<I: Iterator<Item = Token>>(token_stream: &mut Peekable<I>) -> Resul
         None => Ok(tree),
         Some(token) => Err(ParseError::InvalidToken {
             found: token,
-            expected: "operator",
+            expected: Expected::Value("EOF"),
         }),
     }
 }
@@ -91,7 +91,7 @@ fn parse_statement<I: Iterator<Item = Token>>(
     token_stream: &mut Peekable<I>,
 ) -> Result<AST, ParseError> {
     let mut tree: AST = parse_basestatement(token_stream)?;
-    while peek_token_match(token_stream, ";") {
+    while peek_token_match(token_stream, Expected::Value(";")) {
         tree = AST::new(token_stream.next().unwrap())
             .left(tree)
             .right(parse_basestatement(token_stream)?);
@@ -102,12 +102,14 @@ fn parse_statement<I: Iterator<Item = Token>>(
 fn parse_while_statement<I: Iterator<Item = Token>>(
     token_stream: &mut Peekable<I>,
 ) -> Result<AST, ParseError> {
-    let mut tree = AST::new(expect(token_stream, "while")?).left(parse_expression(token_stream)?);
-    expect(token_stream, "do")?;
+    let mut tree = AST::new(expect(token_stream, Expected::Value("while"))?)
+        .left(parse_expression(token_stream)?);
+
+    expect(token_stream, Expected::Value("do"))?;
 
     tree = tree.right(parse_statement(token_stream)?);
 
-    expect(token_stream, "endwhile")?;
+    expect(token_stream, Expected::Value("endwhile"))?;
 
     Ok(tree)
 }
@@ -115,17 +117,27 @@ fn parse_while_statement<I: Iterator<Item = Token>>(
 fn parse_if_statement<I: Iterator<Item = Token>>(
     token_stream: &mut Peekable<I>,
 ) -> Result<AST, ParseError> {
-    Ok(AST::new(expect(token_stream, "if")?)
-        .left(parse_expression(token_stream)?)
-        .middle(parse_statement(token_stream)?)
-        .right(parse_statement(token_stream)?))
+    let mut tree = AST::new(expect(token_stream, Expected::Value("if"))?)
+        .left(parse_expression(token_stream)?);
+
+    expect(token_stream, Expected::Value("then"))?;
+
+    tree = tree.middle(parse_statement(token_stream)?);
+
+    expect(token_stream, Expected::Value("else"))?;
+
+    tree = tree.right(parse_statement(token_stream)?);
+
+    expect(token_stream, Expected::Value("endif"))?;
+
+    Ok(tree)
 }
 
 fn parse_assignment<I: Iterator<Item = Token>>(
     token_stream: &mut Peekable<I>,
 ) -> Result<AST, ParseError> {
     let tree = parse_element(token_stream)?;
-    Ok(AST::new(expect(token_stream, ":=")?)
+    Ok(AST::new(expect(token_stream, Expected::Value(":="))?)
         .left(tree)
         .right(parse_expression(token_stream)?))
 }
@@ -134,31 +146,14 @@ fn parse_basestatement<I: Iterator<Item = Token>>(
     token_stream: &mut Peekable<I>,
 ) -> Result<AST, ParseError> {
     //basestatement ::= assignment | ifstatement | whilestatement | skip
-    if peek_token_match(token_stream, "while") {
+    if peek_token_match(token_stream, Expected::Value("while")) {
         parse_while_statement(token_stream)
-    } else if peek_token_match(token_stream, "if") {
+    } else if peek_token_match(token_stream, Expected::Value("if")) {
         parse_if_statement(token_stream)
-    } else if peek_token_match(token_stream, "skip") {
+    } else if peek_token_match(token_stream, Expected::Value("skip")) {
         Ok(AST::new(token_stream.next().unwrap()))
     } else {
         parse_assignment(token_stream)
-    }
-}
-
-// TODO: refactor code to use this function, probably parse_element and maybe others
-fn expect<I: Iterator<Item = Token>>(
-    token_stream: &mut Peekable<I>,
-    expected: &'static str,
-) -> Result<Token, ParseError> {
-    let next_token = consume_token(token_stream)?;
-
-    if next_token.value == *expected {
-        Ok(next_token)
-    } else {
-        Err(ParseError::InvalidToken {
-            found: next_token,
-            expected,
-        })
     }
 }
 
@@ -167,7 +162,7 @@ fn parse_expression<I: Iterator<Item = Token>>(
 ) -> Result<AST, ParseError> {
     let mut tree: AST = parse_term(token_stream)?;
 
-    while peek_token_match(token_stream, "+") {
+    while peek_token_match(token_stream, Expected::Value("+")) {
         tree = AST::new(token_stream.next().unwrap())
             .left(tree)
             .right(parse_term(token_stream)?);
@@ -181,7 +176,7 @@ fn parse_term<I: Iterator<Item = Token>>(
 ) -> Result<AST, ParseError> {
     let mut tree: AST = parse_factor(token_stream)?;
 
-    while peek_token_match(token_stream, "-") {
+    while peek_token_match(token_stream, Expected::Value("-")) {
         tree = AST::new(token_stream.next().unwrap())
             .left(tree)
             .right(parse_factor(token_stream)?);
@@ -195,7 +190,7 @@ fn parse_factor<I: Iterator<Item = Token>>(
 ) -> Result<AST, ParseError> {
     let mut tree: AST = parse_piece(token_stream)?;
 
-    while peek_token_match(token_stream, "/") {
+    while peek_token_match(token_stream, Expected::Value("/")) {
         tree = AST::new(token_stream.next().unwrap())
             .left(tree)
             .right(parse_piece(token_stream)?);
@@ -209,7 +204,7 @@ fn parse_piece<I: Iterator<Item = Token>>(
 ) -> Result<AST, ParseError> {
     let mut tree: AST = parse_element(token_stream)?;
 
-    while peek_token_match(token_stream, "*") {
+    while peek_token_match(token_stream, Expected::Value("*")) {
         tree = AST::new(token_stream.next().unwrap())
             .left(tree)
             .right(parse_element(token_stream)?);
@@ -222,43 +217,77 @@ fn parse_element<I: Iterator<Item = Token>>(
     token_stream: &mut Peekable<I>,
 ) -> Result<AST, ParseError> {
     let tree: AST;
-    let next_token = consume_token(token_stream)?;
 
-    if next_token.value == *"(" {
+    if peek_token_match(token_stream, Expected::Value("(")) {
+        expect(token_stream, Expected::Value("("))?;
         tree = parse_expression(token_stream)?;
-        if peek_token_match(token_stream, ")") {
-            consume_token(token_stream)?;
-            Ok(tree)
-        } else {
-            match token_stream.next() {
-                None => Err(ParseError::EOF),
-                Some(token) => Err(ParseError::InvalidToken {
-                    found: token,
-                    expected: ")",
-                }),
-            }
-        }
-    } else if next_token.kind == TokenType::Number || next_token.kind == TokenType::Identifier {
-        tree = AST::new(next_token);
+        expect(token_stream, Expected::Value(")"))?;
+        Ok(tree)
+    } else if peek_token_match(token_stream, Expected::Type(TokenType::Number))
+        || peek_token_match(token_stream, Expected::Type(TokenType::Identifier))
+    {
+        tree = AST::new(token_stream.next().unwrap()); // unwrap valid because peek succeeds
         Ok(tree)
     } else {
+        let expected = Expected::Value("( or number or ident");
         Err(ParseError::InvalidToken {
-            found: next_token,
-            expected: "( or number or ident",
+            found: match token_stream.next() {
+                Some(token) => token,
+                None => return Err(ParseError::EOF { expected }),
+            },
+            expected,
         })
     }
 }
 
-fn consume_token<I: Iterator<Item = Token>>(token_stream: &mut I) -> Result<Token, ParseError> {
-    match token_stream.next() {
-        Some(token) => Ok(token),
-        None => Err(ParseError::EOF),
+pub enum Expected {
+    Type(TokenType),
+    Value(&'static str),
+}
+
+impl Expected {
+    fn comp(&self, token: &Token) -> bool {
+        match self {
+            Self::Type(kind) => token.kind == *kind,
+            Self::Value(value) => token.value == *value,
+        }
     }
 }
 
-fn peek_token_match<I: Iterator<Item = Token>>(token_stream: &mut Peekable<I>, comp: &str) -> bool {
+impl fmt::Display for Expected {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Type(kind) => write!(f, "token of type {}", kind),
+            Self::Value(value) => write!(f, "{}", value),
+        }
+    }
+}
+
+fn peek_token_match<I: Iterator<Item = Token>>(
+    token_stream: &mut Peekable<I>,
+    expected: Expected,
+) -> bool {
     match token_stream.peek() {
-        Some(token) => token.value == comp,
+        Some(token) => expected.comp(token),
         None => false,
+    }
+}
+
+fn expect<I: Iterator<Item = Token>>(
+    token_stream: &mut Peekable<I>,
+    expected: Expected,
+) -> Result<Token, ParseError> {
+    let token: Token = match token_stream.next() {
+        Some(token) => token,
+        None => return Err(ParseError::EOF { expected }),
+    };
+
+    if expected.comp(&token) {
+        Ok(token)
+    } else {
+        Err(ParseError::InvalidToken {
+            found: token,
+            expected: expected,
+        })
     }
 }

@@ -43,12 +43,9 @@ impl fmt::Display for ScanError {
 }
 
 pub fn parse_file(file: String) -> Result<Vec<Token>, ScanError> {
-    println!("Tokens: ");
     let mut tokens = Vec::new();
     for line in file.lines() {
-        println!("Line: {}", line);
         tokens.append(&mut line_to_tokens(line)?);
-        println!();
     }
     Ok(tokens)
 }
@@ -91,11 +88,12 @@ fn line_to_tokens(line: &str) -> Result<Vec<Token>, ScanError> {
             } else {
                 // reached end of token
                 buffer.pop();
-                println!(
-                    "{}: {:?}",
-                    buffer,
-                    add_token(&buffer, &regex_map, &mut tokens, token)?
-                );
+                add_token(&buffer, &regex_map, &mut tokens, token)?;
+                // println!(
+		// 	"{}: {:?}",
+                //     buffer,
+                //     add_token(&buffer, &regex_map, &mut tokens, token)?
+                // );
                 buffer = String::new();
                 next = chars.next();
                 buffer.push(next.unwrap());
@@ -107,11 +105,12 @@ fn line_to_tokens(line: &str) -> Result<Vec<Token>, ScanError> {
             };
         }
 
-        println!(
-            "{}: {:?}",
-            buffer,
-            add_token(&buffer, &regex_map, &mut tokens, token)?
-        );
+        add_token(&buffer, &regex_map, &mut tokens, token)?;
+        // println!(
+	// 	"{}: {:?}",
+        //     buffer,
+        //     add_token(&buffer, &regex_map, &mut tokens, token)?
+        // );
     }
     Ok(tokens)
 }

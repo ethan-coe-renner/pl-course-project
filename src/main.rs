@@ -6,82 +6,57 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 
-fn main() {
+fn main() -> std::io::Result<()> {
     // read in from input file
     let args: Vec<String> = env::args().collect();
 
     let inputpath = Path::new(&args[1]);
-    let display = inputpath.display();
 
-    let mut inputfile = match File::open(&inputpath) {
-        Err(why) => panic!("couldn't open {}: {}", display, why),
-        Ok(file) => file,
-    };
+    let mut inputfile = File::open(&inputpath)?;
 
     let mut input_text = String::new();
-    match inputfile.read_to_string(&mut input_text) {
-        Err(why) => panic!("couldn't read {}: {}", display, why),
-        Ok(_) => println!("Successfully read {}\n", display),
-    }
-
+    inputfile.read_to_string(&mut input_text)?;
 
     let outputpath = Path::new(&args[2]);
     let display = outputpath.display();
 
-    let mut output_file = match File::create(&outputpath) {
-        Err(why) => panic!("couldn't create {}: {}", display, why),
-        Ok(file) => file,
-    };
+    let mut output_file = File::create(&outputpath)?;
 
     // Scan file to get token stream
     let tokens: Vec<Token> = match scanner::parse_file(input_text) {
         Err(error) => {
             println!("{}", error);
-	    match output_file.write_all(error.to_string().as_bytes()) {
-		Err(why) => panic!("couldn't write scan error to {}: {}", display, why),
-		Ok(_) => {}
-	    }
-            return;
+            output_file.write_all(error.to_string().as_bytes())?;
+            return Ok(());
         }
         Ok(tokens) => tokens,
     };
 
-    let mut token_string: String = tokens
+    let token_string: String = tokens
         .iter()
         .map(|token| token.to_string())
         .collect::<Vec<String>>()
         .join("\n");
 
-    token_string.push('\n');
-    token_string.push('\n');
-
-    match output_file.write_all(token_string.as_bytes()) {
-        Err(why) => panic!("couldn't write tokens to {}: {}", display, why),
-        Ok(_) => {}
-    }
+    output_file.write_all(b"Tokens:\n")?;
+    output_file.write_all(token_string.as_bytes())?;
 
     // parse token stream to get AST
     let ast = match parser::parse(&mut tokens.into_iter().peekable()) {
         Ok(ast) => ast,
         Err(error) => {
             println!("Parse Error: {}", error);
-	    match output_file.write_all(error.to_string().as_bytes()) {
-		Err(why) => panic!("couldn't write parse error to {}: {}", display, why),
-		Ok(_) => {}
-	    }
-            return;
+            output_file.write_all(error.to_string().as_bytes())?;
+            return Ok(());
         }
     };
 
-    println!("AST:");
     let tree_string = ast.to_str(0);
-    println!("{}", tree_string);
 
     // Output tokens and AST to output file
-    match output_file.write_all(tree_string.as_bytes()) {
-        Err(why) => panic!("couldn't write tree to {}: {}", display, why),
-        Ok(_) => {}
-    }
+    output_file.write_all(b"\n\nAST:\n")?;
+    output_file.write_all(tree_string.as_bytes())?;
 
     println!("Succesfully wrote tokens and tree to {}", display);
+    Ok(())
 }
