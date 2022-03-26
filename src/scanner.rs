@@ -44,7 +44,7 @@ impl fmt::Display for ScanError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "Scan Error on line {}: unable to read \"{}\"",
+            "Scan error on line {}: unable to read \"{}\"",
             self.linenumber, self.buffer
         )
     }
@@ -97,11 +97,6 @@ fn line_to_tokens(line: &str, linenumber: usize) -> Result<Vec<Token>, ScanError
                 // reached end of token
                 buffer.pop();
                 add_token(&buffer, &regex_map, &mut tokens, token, linenumber)?;
-                // println!(
-                // 	"{}: {:?}",
-                //     buffer,
-                //     add_token(&buffer, &regex_map, &mut tokens, token)?
-                // );
                 buffer = String::new();
                 next = chars.next();
                 buffer.push(next.unwrap());
@@ -114,11 +109,6 @@ fn line_to_tokens(line: &str, linenumber: usize) -> Result<Vec<Token>, ScanError
         }
 
         add_token(&buffer, &regex_map, &mut tokens, token, linenumber)?;
-        // println!(
-        // 	"{}: {:?}",
-        //     buffer,
-        //     add_token(&buffer, &regex_map, &mut tokens, token)?
-        // );
     }
     Ok(tokens)
 }
