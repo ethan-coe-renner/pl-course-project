@@ -132,8 +132,8 @@ impl fmt::Display for ParseError {
             Self::InvalidToken { found, expected } => {
                 write!(
                     f,
-                    "Invalid token: found {}, expected {}",
-                    found.value, expected
+                    "Invalid token on line {}: found {}, expected {}",
+                    found.line, found.value, expected
                 )
             }
         }

@@ -14,11 +14,12 @@ pub enum TokenType {
 pub struct Token {
     pub kind: TokenType,
     pub value: String,
+    pub line: usize,
 }
 
 impl Token {
-    pub fn new(kind: TokenType, value: String) -> Token {
-        Token { kind, value }
+    pub fn new(kind: TokenType, value: String, line: usize) -> Token {
+        Token { kind, value, line }
     }
 }
 
@@ -42,16 +43,16 @@ impl fmt::Display for ScanError {
     }
 }
 
-pub fn parse_file(file: String) -> Result<Vec<Token>, ScanError> {
+pub fn scan_file(file: String) -> Result<Vec<Token>, ScanError> {
     let mut tokens = Vec::new();
-    for line in file.lines() {
-        tokens.append(&mut line_to_tokens(line)?);
+    for (number, line) in file.lines().enumerate() {
+        tokens.append(&mut line_to_tokens(line, number + 1)?);
     }
     Ok(tokens)
 }
 
 // converts a line into a vector of tokens
-fn line_to_tokens(line: &str) -> Result<Vec<Token>, ScanError> {
+fn line_to_tokens(line: &str, linenumber: usize) -> Result<Vec<Token>, ScanError> {
     let mut regex_map = HashMap::new(); //map from Token to regex matching that token
     regex_map.insert(
         TokenType::Identifier,
@@ -88,9 +89,9 @@ fn line_to_tokens(line: &str) -> Result<Vec<Token>, ScanError> {
             } else {
                 // reached end of token
                 buffer.pop();
-                add_token(&buffer, &regex_map, &mut tokens, token)?;
+                add_token(&buffer, &regex_map, &mut tokens, token, linenumber)?;
                 // println!(
-		// 	"{}: {:?}",
+                // 	"{}: {:?}",
                 //     buffer,
                 //     add_token(&buffer, &regex_map, &mut tokens, token)?
                 // );
@@ -105,9 +106,9 @@ fn line_to_tokens(line: &str) -> Result<Vec<Token>, ScanError> {
             };
         }
 
-        add_token(&buffer, &regex_map, &mut tokens, token)?;
+        add_token(&buffer, &regex_map, &mut tokens, token, linenumber)?;
         // println!(
-	// 	"{}: {:?}",
+        // 	"{}: {:?}",
         //     buffer,
         //     add_token(&buffer, &regex_map, &mut tokens, token)?
         // );
@@ -120,10 +121,11 @@ fn add_token(
     regex_map: &HashMap<TokenType, Regex>,
     tokens: &mut Vec<Token>,
     kind: TokenType,
+    line: usize,
 ) -> Result<TokenType, ScanError> {
     if regex_map.get(&kind).unwrap().is_match(buffer) {
         let newkind = check_if_keyword(buffer, regex_map, kind);
-        let newtoken = Token::new(newkind, buffer.to_string());
+        let newtoken = Token::new(newkind, buffer.to_string(), line);
         tokens.push(newtoken);
         Ok(newkind)
     } else {

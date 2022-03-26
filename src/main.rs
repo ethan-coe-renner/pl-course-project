@@ -23,7 +23,7 @@ fn main() -> std::io::Result<()> {
     let mut output_file = File::create(&outputpath)?;
 
     // Scan file to get token stream
-    let tokens: Vec<Token> = match scanner::parse_file(input_text) {
+    let tokens: Vec<Token> = match scanner::scan_file(input_text) {
         Err(error) => {
             println!("{}", error);
             output_file.write_all(error.to_string().as_bytes())?;
