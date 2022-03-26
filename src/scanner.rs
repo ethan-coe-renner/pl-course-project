@@ -35,11 +35,18 @@ impl fmt::Display for TokenType {
     }
 }
 
-pub struct ScanError(pub String);
+pub struct ScanError {
+    buffer: String,
+    linenumber: usize,
+}
 
 impl fmt::Display for ScanError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Scan Error: unable to read \"{}\"", self.0)
+        write!(
+            f,
+            "Scan Error on line {}: unable to read \"{}\"",
+            self.linenumber, self.buffer
+        )
     }
 }
 
@@ -75,7 +82,7 @@ fn line_to_tokens(line: &str, linenumber: usize) -> Result<Vec<Token>, ScanError
         let mut chars = word.chars().peekable();
         let mut next = chars.next();
         buffer.push(next.unwrap());
-        let mut token = assign_initial_token(&buffer, &regex_map)?;
+        let mut token = assign_initial_token(&buffer, &regex_map, linenumber)?;
 
         next = match chars.peek() {
             None => None,
@@ -98,7 +105,7 @@ fn line_to_tokens(line: &str, linenumber: usize) -> Result<Vec<Token>, ScanError
                 buffer = String::new();
                 next = chars.next();
                 buffer.push(next.unwrap());
-                token = assign_initial_token(&buffer, &regex_map)?;
+                token = assign_initial_token(&buffer, &regex_map, linenumber)?;
             }
             next = match chars.peek() {
                 None => None,
@@ -129,7 +136,10 @@ fn add_token(
         tokens.push(newtoken);
         Ok(newkind)
     } else {
-        Err(ScanError(buffer.to_string()))
+        Err(ScanError {
+            buffer: buffer.to_string(),
+            linenumber: line,
+        })
     }
 }
 
@@ -152,6 +162,7 @@ fn check_if_keyword(
 fn assign_initial_token(
     buffer: &str,
     regex_map: &HashMap<TokenType, Regex>,
+    line: usize,
 ) -> Result<TokenType, ScanError> {
     if regex_map
         .get(&TokenType::Identifier)
@@ -166,6 +177,9 @@ fn assign_initial_token(
     } else if buffer == ":" {
         Ok(TokenType::Symbol)
     } else {
-        Err(ScanError(buffer.to_string()))
+        Err(ScanError {
+            buffer: buffer.to_string(),
+            linenumber: line,
+        })
     }
 }
