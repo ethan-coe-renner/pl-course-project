@@ -24,6 +24,7 @@ impl AST {
     // adds given AST as left subtree of self
     pub fn left(mut self, node: Self) -> Self {
         self.left = Some(Box::new(node));
+
         self
     }
     // adds given AST as middle subtree of self
@@ -37,19 +38,19 @@ impl AST {
         self
     }
     // recursively generates string representation of AST
-    pub fn to_str(self, level: usize) -> String {
+    pub fn to_str(&self, level: usize) -> String {
         let mut st = String::from("\t".repeat(level));
         st.push_str(&self.value.to_string());
         st.push('\n');
-        match self.left {
+        match &self.left {
             Some(subtree) => st.push_str(&subtree.to_str(level + 1)),
             None => {}
         }
-        match self.middle {
+        match &self.middle {
             Some(subtree) => st.push_str(&subtree.to_str(level + 1)),
             None => {}
         }
-        match self.right {
+        match &self.right {
             Some(subtree) => st.push_str(&subtree.to_str(level + 1)),
             None => {}
         }
@@ -65,7 +66,7 @@ pub enum Expected {
 
 impl Expected {
     // checks if a given token matches the expectation
-    fn check(&self, token: &Token) -> bool {
+    pub fn check(&self, token: &Token) -> bool {
         match self {
             Self::Type(kind) => token.kind == *kind,
             Self::Value(value) => token.value == *value,
@@ -142,7 +143,8 @@ impl fmt::Display for ParseError {
 
 // driver function for parser, calls parse_statement and then ensures the token stream is empty
 pub fn parse<I: Iterator<Item = Token>>(token_stream: &mut Peekable<I>) -> Result<AST, ParseError> {
-    let tree = parse_statement(token_stream)?;
+    // let tree = parse_statement(token_stream)?;
+    let tree = parse_expression(token_stream)?;
 
     match token_stream.next() {
         None => Ok(tree),

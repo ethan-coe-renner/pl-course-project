@@ -1,6 +1,8 @@
+mod evaluator;
 mod parser;
 mod scanner;
 use crate::scanner::*;
+use crate::evaluator::*;
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
@@ -53,6 +55,10 @@ fn main() -> std::io::Result<()> {
     };
 
     let tree_string = ast.to_str(0);
+
+    let stack = new_stack(ast);
+
+    println!("Result: {}", stack[0]);
 
     // Output tokens and AST to output file
     output_file.write_all(tree_string.as_bytes())?;
