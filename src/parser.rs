@@ -156,6 +156,7 @@ pub fn parse<I: Iterator<Item = Token>>(token_stream: &mut Peekable<I>) -> Resul
 }
 
 // Parses statements ::= basestatement {; basestatement}
+#[allow(dead_code)] // for 3.1
 fn parse_statement<I: Iterator<Item = Token>>(
     token_stream: &mut Peekable<I>,
 ) -> Result<AST, ParseError> {
