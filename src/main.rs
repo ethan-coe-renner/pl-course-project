@@ -58,7 +58,10 @@ fn main() -> std::io::Result<()> {
 
     let stack = new_stack(ast);
 
-    println!("Result: {}", stack[0]);
+    match stack {
+	Err(error) => println!("Evaluation Error: {}", error),
+	Ok(stack) => println!("Result: {}", stack[0].value)
+    }
 
     // Output tokens and AST to output file
     output_file.write_all(tree_string.as_bytes())?;
@@ -66,3 +69,4 @@ fn main() -> std::io::Result<()> {
     println!("Succesfully wrote tokens and tree to {}", display);
     Ok(())
 }
+
