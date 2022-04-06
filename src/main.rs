@@ -1,8 +1,8 @@
 mod evaluator;
 mod parser;
 mod scanner;
-use crate::scanner::*;
 use crate::evaluator::*;
+use crate::scanner::*;
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
@@ -58,15 +58,19 @@ fn main() -> std::io::Result<()> {
 
     let stack = new_stack(ast);
 
-    match stack {
-	Err(error) => println!("Evaluation Error: {}", error),
-	Ok(stack) => println!("Result: {}", stack[0].value)
-    }
-
     // Output tokens and AST to output file
     output_file.write_all(tree_string.as_bytes())?;
+
+    match stack {
+        Err(error) => println!("Evaluation Error: {}", error),
+        Ok(stack) => {
+            let output_str = String::from("\nResult: ") + &stack[0].value;
+
+            output_file.write_all(output_str.as_bytes())?;
+            println!("Result: {}", stack[0].value)
+        }
+    }
 
     println!("Succesfully wrote tokens and tree to {}", display);
     Ok(())
 }
-
