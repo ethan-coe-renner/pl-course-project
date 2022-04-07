@@ -1,6 +1,7 @@
 use crate::parser::Expected;
 use crate::parser::AST;
 use crate::Token;
+use crate::TokenType;
 use std::fmt;
 
 pub enum EvalError {
@@ -25,20 +26,18 @@ impl fmt::Display for EvalError {
 }
 
 pub fn eval(ast: AST) -> Result<u32, EvalError> {
-    if ast.left.is_none() && ast.right.is_none() {
-        // ast is a leaf node
-        Ok(ast.value.value.parse::<u32>().unwrap())
-    } else {
-        // ast is an internal node or root
-        eval_op(
+    match ast.value.kind {
+        TokenType::Number => Ok(ast.value.value.parse::<u32>().unwrap()),
+        TokenType::Symbol => eval_interior(
             ast.value,
             eval(*ast.left.unwrap())?,
             eval(*ast.right.unwrap())?,
-        )
+        ),
+        _ => unreachable!(),
     }
 }
 
-fn eval_op(op: Token, operand_one: u32, operand_two: u32) -> Result<u32, EvalError> {
+fn eval_interior(op: Token, operand_one: u32, operand_two: u32) -> Result<u32, EvalError> {
     // generate operator expectors
     if Expected::Value("+").check(&op) {
         Ok(operand_one + operand_two)
