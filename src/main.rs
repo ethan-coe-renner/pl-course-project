@@ -56,18 +56,17 @@ fn main() -> std::io::Result<()> {
 
     let tree_string = ast.to_str(0);
 
-    let stack = new_stack(ast);
 
     // Output tokens and AST to output file
     output_file.write_all(tree_string.as_bytes())?;
 
-    match stack {
+    match eval(ast){
         Err(error) => println!("Evaluation Error: {}", error),
-        Ok(stack) => {
-            let output_str = String::from("\nResult: ") + &stack[0].value;
+        Ok(result) => {
+            let output_str = String::from("\nResult: ") + &result.to_string();
 
             output_file.write_all(output_str.as_bytes())?;
-            println!("Result: {}", stack[0].value)
+            println!("Result: {}", result)
         }
     }
 

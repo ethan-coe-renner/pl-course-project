@@ -1,14 +1,11 @@
 use crate::parser::Expected;
 use crate::parser::AST;
 use crate::Token;
-use crate::TokenType;
 use std::fmt;
-
-// represents a partially evaluated expression
-pub type TokenStack = Vec<Token>;
 
 pub enum EvalError {
     DivByZero { numerator: u32 },
+    #[allow(dead_code)] // until 3.2
     UndeclaredVariable { variable: String },
 }
 
@@ -23,86 +20,36 @@ impl fmt::Display for EvalError {
     }
 }
 
-pub fn new_stack(ast: AST) -> Result<TokenStack, EvalError> {
-    let mut stack: TokenStack = Vec::new();
-    stack.push(ast.value);
-    while try_evaluate(&mut stack)? {}
+pub fn eval(ast: AST) -> Result<u32, EvalError> {
     match ast.left {
-        Some(subtree) => stack.append(&mut new_stack(*subtree)?),
-        None => {}
+	None => Ok(ast.value.value.parse::<u32>().unwrap()), // unwrap safe because of scanner
+	Some(left) => eval_op(ast.value, eval(*left)?, eval(*ast.right.unwrap())?)
     }
-    while try_evaluate(&mut stack)? {}
-    match ast.middle {
-        Some(subtree) => stack.append(&mut new_stack(*subtree)?),
-        None => {}
-    }
-    while try_evaluate(&mut stack)? {}
-    match ast.right {
-        Some(subtree) => stack.append(&mut new_stack(*subtree)?),
-        None => {}
-    }
-    while try_evaluate(&mut stack)? {}
-    Ok(stack)
 }
 
-fn evaluate(stack: &mut TokenStack) -> Result<(), EvalError> {
-    let operand_two: u32 = stack[stack.len() - 1].value.parse::<u32>().unwrap(); // unwrap safe because of scanner
-    let operand_one: u32 = stack[stack.len() - 2].value.parse::<u32>().unwrap(); // unwrap safe because of scanner
-    let operator = stack[stack.len() - 3].clone();
-
+fn eval_op(op: Token, operand_one: u32, operand_two: u32) -> Result<u32, EvalError> {
     // generate operator expectors
-    let plus = Expected::Value("+");
-    let mul = Expected::Value("*");
-    let min = Expected::Value("-");
-    let div = Expected::Value("/");
-
-    // calculate new value
-    let newval = if plus.check(&operator) {
-        operand_one + operand_two
-    } else if min.check(&operator) {
-        if operand_one >= operand_two {
-            // need to check for underflow
-            operand_one - operand_two
+    if Expected::Value("+").check(&op) {
+        Ok(operand_one + operand_two)
+    } else if Expected::Value("-").check(&op) {
+        if operand_one >= operand_two { // check for underflow
+	    Ok(operand_one - operand_two)
         } else {
-            0
+            Ok(0)
         }
-    } else if mul.check(&operator) {
-        operand_one * operand_two
-    } else if div.check(&operator) {
+    } else if Expected::Value("*").check(&op) {
+        Ok(operand_one * operand_two)
+    } else if Expected::Value("/").check(&op) {
         match operand_two {
             0 => {
                 return Err(EvalError::DivByZero {
                     numerator: operand_one,
                 })
             }
-            divisor => operand_one / divisor,
+            divisor => Ok(operand_one / divisor),
         }
     } else {
+	// not a valid operator, scanner should not allow this
         unreachable!()
-    };
-
-    // pop last three and push new value
-    stack.pop();
-    stack.pop();
-    stack.pop();
-
-    stack.push(Token {
-        kind: TokenType::Number,
-        value: newval.to_string(),
-        line: 0, // doesn't make sense here
-    });
-    Ok(())
-}
-
-fn try_evaluate(stack: &mut TokenStack) -> Result<bool, EvalError> {
-    if stack.len() >= 3
-        && stack.last().unwrap().kind == TokenType::Number
-        && stack[stack.len() - 2].kind == TokenType::Number
-        && stack[stack.len() - 3].kind == TokenType::Symbol
-    {
-        evaluate(stack)?;
-        Ok(true)
-    } else {
-        Ok(false)
     }
 }
