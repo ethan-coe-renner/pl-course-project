@@ -56,7 +56,6 @@ fn main() -> std::io::Result<()> {
 
     let tree_string = ast.to_str(0);
 
-
     // Output tokens and AST to output file
     output_file.write_all(tree_string.as_bytes())?;
 
