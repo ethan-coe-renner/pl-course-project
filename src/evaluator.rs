@@ -4,9 +4,13 @@ use crate::Token;
 use std::fmt;
 
 pub enum EvalError {
-    DivByZero { numerator: u32 },
+    DivByZero {
+        numerator: u32,
+    },
     #[allow(dead_code)] // until 3.2
-    UndeclaredVariable { variable: String },
+    UndeclaredVariable {
+        variable: String,
+    },
 }
 
 impl fmt::Display for EvalError {
@@ -21,9 +25,16 @@ impl fmt::Display for EvalError {
 }
 
 pub fn eval(ast: AST) -> Result<u32, EvalError> {
-    match ast.left {
-	None => Ok(ast.value.value.parse::<u32>().unwrap()), // unwrap safe because of scanner
-	Some(left) => eval_op(ast.value, eval(*left)?, eval(*ast.right.unwrap())?)
+    if ast.left.is_none() && ast.right.is_none() {
+        // ast is a leaf node
+        Ok(ast.value.value.parse::<u32>().unwrap())
+    } else {
+        // ast is an internal node or root
+        eval_op(
+            ast.value,
+            eval(*ast.left.unwrap())?,
+            eval(*ast.right.unwrap())?,
+        )
     }
 }
 
@@ -32,8 +43,9 @@ fn eval_op(op: Token, operand_one: u32, operand_two: u32) -> Result<u32, EvalErr
     if Expected::Value("+").check(&op) {
         Ok(operand_one + operand_two)
     } else if Expected::Value("-").check(&op) {
-        if operand_one >= operand_two { // check for underflow
-	    Ok(operand_one - operand_two)
+        if operand_one >= operand_two {
+            // check for underflow
+            Ok(operand_one - operand_two)
         } else {
             Ok(0)
         }
@@ -49,7 +61,7 @@ fn eval_op(op: Token, operand_one: u32, operand_two: u32) -> Result<u32, EvalErr
             divisor => Ok(operand_one / divisor),
         }
     } else {
-	// not a valid operator, scanner should not allow this
+        // not a valid operator, scanner should not allow this
         unreachable!()
     }
 }
